@@ -37,9 +37,13 @@ jobs:
         working-directory: server
         run: npm test
 
+      - name: Keep production dependencies
+        working-directory: server
+        run: npm prune --omit=dev
+
       - name: Package artifact
         working-directory: server
-        run: zip -r ../server-release.zip . -x "node_modules/*" "test/*"
+        run: zip -r ../server-release.zip . -x "test/*"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
