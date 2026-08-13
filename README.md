@@ -62,8 +62,10 @@ This repo includes GitHub Actions workflows to deploy:
   optionally, a `REDACTOR_API_URL` repository/environment variable pointing at
   the deployed API).
 - `server/` to [Azure App Service](https://learn.microsoft.com/azure/app-service/)
-  via `.github/workflows/azure-app-service-server.yml` (requires the
-  `AZURE_WEBAPP_PUBLISH_PROFILE` secret).
+  via `.github/workflows/azure-app-service-server.yml`. Configure an Azure
+  service principal with a GitHub Actions OIDC federated credential, then set
+  the `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`
+  repository/environment variables.
 
 Set the `ALLOWED_ORIGIN` environment variable on the deployed API (e.g. an
 Azure App Service application setting) to restrict CORS to your deployed
