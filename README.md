@@ -57,10 +57,10 @@ at a non-default API URL. It defaults to `http://localhost:3001`.
 This repo includes GitHub Actions workflows to deploy:
 
 - `client/` to [Azure Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/)
-  via `.github/workflows/azure-static-web-apps-client.yml` (requires the
-  `AZURE_STATIC_WEB_APPS_API_TOKEN` secret and, optionally, a
-  `REDACTOR_API_URL` repository/environment variable pointing at the deployed
-  API).
+  via `.github/workflows/azure-static-web-apps-client.yml` (the only Static Web
+  Apps workflow; it requires the `AZURE_STATIC_WEB_APPS_API_TOKEN` secret and,
+  optionally, a `REDACTOR_API_URL` repository/environment variable pointing at
+  the deployed API).
 - `server/` to [Azure App Service](https://learn.microsoft.com/azure/app-service/)
   via `.github/workflows/azure-app-service-server.yml` (requires the
   `AZURE_WEBAPP_PUBLISH_PROFILE` secret).
