@@ -176,8 +176,9 @@ function UnredactPanel() {
         onChange={(e) => setRedactedText(e.target.value)}
       />
 
-      <label htmlFor="mapping-csv">Redaction mapping CSV</label>
+      <label htmlFor="mapping-csv-file">Redaction mapping CSV file</label>
       <input id="mapping-csv-file" type="file" accept=".csv,text/csv" onChange={onFileChange} />
+      <label htmlFor="mapping-csv">Or paste mapping CSV</label>
       <textarea
         id="mapping-csv"
         rows={6}

@@ -12,6 +12,9 @@ on:
 env:
   AZURE_WEBAPP_NAME: redactor-api # set this to the name of your Azure Web App
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

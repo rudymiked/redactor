@@ -64,3 +64,7 @@ This repo includes GitHub Actions workflows to deploy:
 - `server/` to [Azure App Service](https://learn.microsoft.com/azure/app-service/)
   via `.github/workflows/azure-app-service-server.yml` (requires the
   `AZURE_WEBAPP_PUBLISH_PROFILE` secret).
+
+Set the `ALLOWED_ORIGIN` environment variable on the deployed API (e.g. an
+Azure App Service application setting) to restrict CORS to your deployed
+client's origin instead of allowing all origins.

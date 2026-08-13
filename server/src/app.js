@@ -14,7 +14,8 @@ const MAX_TEXT_LENGTH = 200000; // ~200 KB of text, generous for a document body
 
 function createApp() {
   const app = express();
-  app.use(cors());
+  const allowedOrigin = process.env.ALLOWED_ORIGIN;
+  app.use(cors(allowedOrigin ? { origin: allowedOrigin } : {}));
   app.use(express.json({ limit: '5mb' }));
   app.use(express.text({ type: 'text/csv', limit: '5mb' }));
 
