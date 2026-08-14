@@ -38,10 +38,12 @@ jobs:
         working-directory: client
         run: npm ci
 
+      - name: Run tests
+        working-directory: client
+        run: npm test
+
       - name: Build
         working-directory: client
-        env:
-          VITE_API_URL: ${{ vars.REDACTOR_API_URL }}
         run: |
           npm run build
           cp staticwebapp.config.json dist/staticwebapp.config.json
@@ -66,3 +68,4 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: 'close'
+          app_location: 'client/dist'

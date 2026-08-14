@@ -11,62 +11,44 @@ explicit terms you provide, plus a simple built-in heuristic that suggests
 likely names (sequences of capitalized words) as candidates. AI-assisted
 detection can be layered on top later.
 
+All document processing happens locally in the browser. Document text and
+redaction mappings are not sent to a server.
+
 ## Project structure
 
-- `server/` — Node.js/Express API implementing redact/un-redact logic and
-  mapping (CSV) generation/parsing.
-- `client/` — React app (built with Vite) providing the UI to redact and
-  un-redact documents.
+- `client/` — React/Vite app containing the UI and browser-side redaction engine.
+- `server/` — optional legacy Express implementation retained as a reference;
+  it is not required by the MVP.
 
 ## Getting started
-
-### API (server)
-
-```bash
-cd server
-npm install
-npm test    # run unit tests
-npm start   # starts the API on http://localhost:3001
-```
 
 ### Client
 
 ```bash
 cd client
 npm install
+npm test        # run redaction engine tests
 npm run dev     # starts the dev server on http://localhost:5173
 npm run build   # production build to client/dist
 ```
 
-Set `VITE_API_URL` (e.g. in a `.env` file in `client/`) to point the client
-at a non-default API URL. It defaults to `http://localhost:3001`.
-
 ## How it works
 
-1. Paste or upload a document's text, and provide the terms to redact (or use
-   "Suggest names" to detect likely candidates).
+1. Upload a document and provide the terms to redact (or use "Suggest names"
+   to detect likely candidates).
+   Uploads support TXT, Markdown, CSV, JSON, DOCX, and text-based PDF files up
+   to 20 MB. Scanned PDFs require OCR and are not supported by this MVP.
 2. Redact the document — each unique term is replaced with a stable numeric
    code (e.g. `00001`, `00002`, ...) everywhere it appears.
-3. Download the generated mapping as a CSV "redaction spreadsheet".
+3. Download the redacted document and its mapping CSV.
 4. Share/edit the redacted document freely.
-5. When ready, paste the (possibly edited) redacted document and the mapping
-   CSV back into the app and un-redact it to restore the original values.
+5. When ready, upload the (possibly edited) redacted document and mapping CSV,
+   restore the original values, and download the restored document.
 
 ## Deploying to Azure
 
-This repo includes GitHub Actions workflows to deploy:
-
-- `client/` to [Azure Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/)
-  via `.github/workflows/azure-static-web-apps-client.yml` (the only Static Web
-  Apps workflow; it requires the `AZURE_STATIC_WEB_APPS_API_TOKEN` secret and,
-  optionally, a `REDACTOR_API_URL` repository/environment variable pointing at
-  the deployed API).
-- `server/` to [Azure App Service](https://learn.microsoft.com/azure/app-service/)
-  via `.github/workflows/azure-app-service-server.yml`. Configure an Azure
-  service principal with a GitHub Actions OIDC federated credential, then set
-  the `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`
-  repository/environment variables.
-
-Set the `ALLOWED_ORIGIN` environment variable on the deployed API (e.g. an
-Azure App Service application setting) to restrict CORS to your deployed
-client's origin instead of allowing all origins.
+The MVP deploys `client/` to
+[Azure Static Web Apps](https://learn.microsoft.com/azure/static-web-apps/)
+through `.github/workflows/azure-static-web-apps-client.yml`. The workflow
+requires the `AZURE_STATIC_WEB_APPS_API_TOKEN` GitHub Actions secret. No API,
+App Service, CORS configuration, or `VITE_API_URL` setting is required.

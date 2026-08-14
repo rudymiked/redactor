@@ -86,3 +86,9 @@ td {
   color: #b00020;
   font-weight: 600;
 }
+
+.file-status {
+  color: #30653b;
+  font-size: 0.85rem;
+  margin: 0.15rem 0 0;
+}

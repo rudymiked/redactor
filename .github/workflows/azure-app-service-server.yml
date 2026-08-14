@@ -1,12 +1,6 @@
-name: Deploy API to Azure App Service
+name: Deploy legacy API to Azure App Service
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'server/**'
-      - '.github/workflows/azure-app-service-server.yml'
   workflow_dispatch:
 
 env:
