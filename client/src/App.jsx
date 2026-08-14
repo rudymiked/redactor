@@ -26,19 +26,32 @@ function getOutputFilename(sourceFilename, suffix) {
   return `${basename}-${suffix}.txt`;
 }
 
+function getTermContext(text, term) {
+  const index = text.indexOf(term);
+  if (index === -1) return '';
+
+  const start = Math.max(0, index - 48);
+  const end = Math.min(text.length, index + term.length + 48);
+  const excerpt = text.slice(start, end).replace(/\s+/g, ' ').trim();
+  return `${start > 0 ? '…' : ''}${excerpt}${end < text.length ? '…' : ''}`;
+}
+
 function RedactPanel() {
   const [sourceText, setSourceText] = useState('');
-  const [termsInput, setTermsInput] = useState('');
+  const [termOptions, setTermOptions] = useState([]);
+  const [customTerm, setCustomTerm] = useState('');
   const [redactedText, setRedactedText] = useState('');
   const [mapping, setMapping] = useState([]);
   const [sourceFilename, setSourceFilename] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const terms = termsInput
-    .split('\n')
-    .map((t) => t.trim())
-    .filter(Boolean);
+  const selectedTerms = termOptions.filter((term) => term.selected).map((term) => term.value);
+
+  function clearRedactionResult() {
+    setRedactedText('');
+    setMapping([]);
+  }
 
   async function onDocumentFileChange(e) {
     const file = e.target.files?.[0];
@@ -50,9 +63,9 @@ function RedactPanel() {
       const text = await readDocument(file);
       setSourceText(text);
       setSourceFilename(file.name);
-      setTermsInput('');
-      setRedactedText('');
-      setMapping([]);
+      setTermOptions([]);
+      setCustomTerm('');
+      clearRedactionResult();
     } catch (err) {
       setSourceFilename('');
       setError(err.message);
@@ -67,8 +80,19 @@ function RedactPanel() {
     setBusy(true);
     try {
       const candidates = await detectCandidates(sourceText);
-      const merged = Array.from(new Set([...terms, ...candidates]));
-      setTermsInput(merged.join('\n'));
+      setTermOptions((current) => {
+        const merged = new Map(current.map((term) => [term.value, term]));
+        for (const candidate of candidates) {
+          if (!merged.has(candidate)) {
+            merged.set(candidate, { value: candidate, selected: true });
+          }
+        }
+        return [...merged.values()];
+      });
+      clearRedactionResult();
+      if (candidates.length === 0) {
+        setError('No likely names were found. Add a custom term below.');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -76,11 +100,43 @@ function RedactPanel() {
     }
   }
 
+  function onToggleTerm(value) {
+    setTermOptions((current) =>
+      current.map((term) =>
+        term.value === value ? { ...term, selected: !term.selected } : term,
+      ),
+    );
+    clearRedactionResult();
+  }
+
+  function onAddCustomTerm(e) {
+    e.preventDefault();
+    const value = customTerm.trim();
+    if (!value) return;
+    if (!sourceText.includes(value)) {
+      setError(`“${value}” was not found in the uploaded document`);
+      return;
+    }
+
+    setError('');
+    setTermOptions((current) => {
+      const existing = current.find((term) => term.value === value);
+      if (existing) {
+        return current.map((term) =>
+          term.value === value ? { ...term, selected: true } : term,
+        );
+      }
+      return [...current, { value, selected: true }];
+    });
+    setCustomTerm('');
+    clearRedactionResult();
+  }
+
   async function onRedact() {
     setError('');
     setBusy(true);
     try {
-      const result = await redact(sourceText, terms);
+      const result = await redact(sourceText, selectedTerms);
       setRedactedText(result.redactedText);
       setMapping(result.mapping);
     } catch (err) {
@@ -117,21 +173,56 @@ function RedactPanel() {
       />
       {sourceFilename && <p className="file-status">Loaded {sourceFilename}</p>}
 
-      <label htmlFor="terms-input">Terms to redact (one per line)</label>
-      <textarea
-        id="terms-input"
-        rows={4}
-        placeholder="James Smith&#10;Jane Doe"
-        value={termsInput}
-        onChange={(e) => setTermsInput(e.target.value)}
-      />
-
       <div className="button-row">
         <button type="button" onClick={onDetect} disabled={busy || !sourceText}>
           Suggest names
         </button>
-        <button type="button" onClick={onRedact} disabled={busy || !sourceText || terms.length === 0}>
-          Redact
+      </div>
+
+      {termOptions.length > 0 && (
+        <fieldset className="candidate-review">
+          <legend>Review sensitive terms</legend>
+          {termOptions.map((term) => (
+            <label className="candidate-row" key={term.value}>
+              <input
+                type="checkbox"
+                checked={term.selected}
+                onChange={() => onToggleTerm(term.value)}
+              />
+              <span>
+                <strong>{term.value}</strong>
+                <small>{getTermContext(sourceText, term.value)}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+
+      {sourceText && (
+        <form className="custom-term-form" onSubmit={onAddCustomTerm}>
+          <label htmlFor="custom-term">Add custom term to redact</label>
+          <div>
+            <input
+              id="custom-term"
+              type="text"
+              value={customTerm}
+              onChange={(e) => setCustomTerm(e.target.value)}
+              placeholder="Exact text from the document"
+            />
+            <button type="submit" disabled={!customTerm.trim()}>
+              Add
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="button-row">
+        <button
+          type="button"
+          onClick={onRedact}
+          disabled={busy || !sourceText || selectedTerms.length === 0}
+        >
+          Redact selected terms
         </button>
       </div>
 
@@ -140,6 +231,9 @@ function RedactPanel() {
       {redactedText && (
         <>
           <p className="file-status">Redaction complete. Download both files to restore later.</p>
+          <p className="mapping-warning">
+            Keep the mapping CSV private. It contains every original sensitive value.
+          </p>
           <h3>Redaction mapping ({mapping.length})</h3>
           <table>
             <thead>
@@ -173,7 +267,7 @@ function RedactPanel() {
 
 function UnredactPanel() {
   const [redactedText, setRedactedText] = useState('');
-  const [mappingCsv, setMappingCsv] = useState('');
+  const [mapping, setMapping] = useState([]);
   const [restoredText, setRestoredText] = useState('');
   const [redactedFilename, setRedactedFilename] = useState('');
   const [mappingFilename, setMappingFilename] = useState('');
@@ -206,10 +300,12 @@ function UnredactPanel() {
 
     setError('');
     try {
-      setMappingCsv(await file.text());
+      const parsedMapping = await parseMappingCsv(await file.text());
+      setMapping(parsedMapping);
       setMappingFilename(file.name);
       setRestoredText('');
     } catch (err) {
+      setMapping([]);
       setMappingFilename('');
       setError(err.message);
     } finally {
@@ -221,7 +317,9 @@ function UnredactPanel() {
     setError('');
     setBusy(true);
     try {
-      const mapping = await parseMappingCsv(mappingCsv);
+      if (!mapping.some((entry) => redactedText.includes(entry.code))) {
+        throw new Error('This mapping does not match any codes in the redacted document');
+      }
       const text = await unredact(redactedText, mapping);
       setRestoredText(text);
     } catch (err) {
@@ -257,9 +355,16 @@ function UnredactPanel() {
         disabled={busy}
       />
       {mappingFilename && <p className="file-status">Loaded {mappingFilename}</p>}
+      {mappingFilename && (
+        <p className="mapping-warning">This mapping contains sensitive original values.</p>
+      )}
 
       <div className="button-row">
-        <button type="button" onClick={onUnredact} disabled={busy || !redactedText || !mappingCsv}>
+        <button
+          type="button"
+          onClick={onUnredact}
+          disabled={busy || !redactedText || mapping.length === 0}
+        >
           Un-redact
         </button>
       </div>
@@ -283,8 +388,9 @@ function App() {
       <header>
         <h1>Redactor</h1>
         <p>
-          Upload a document, replace sensitive terms with tracking codes (e.g. <code>00458</code>),
-          then download the redacted document and mapping needed to restore it later.
+          Upload a document, replace sensitive terms with tracking codes (e.g.{' '}
+          <code>[[R00458]]</code>), then download the redacted document and mapping needed to
+          restore it later.
         </p>
       </header>
       <main>

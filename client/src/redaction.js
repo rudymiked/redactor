@@ -5,17 +5,17 @@ function escapeRegExp(value) {
 }
 
 function formatCode(id, padding = DEFAULT_CODE_PADDING) {
-  return String(id).padStart(padding, '0');
+  return `[[R${String(id).padStart(padding, '0')}]]`;
 }
 
 export function detectNameCandidates(text) {
-  const pattern = /\b[A-Z][a-zA-Z'-]*(?:\s+[A-Z][a-zA-Z'-]*)+\b/g;
+  const pattern = /\b(?:[A-Z][a-zA-Z-]*(?:['’][A-Za-z]+)*)(?:\s+[A-Z][a-zA-Z-]*(?:['’][A-Za-z]+)*)+\b|\b[A-Z][a-zA-Z-]*(?:['’][A-Z][a-zA-Z-]*)*['’]s\b/g;
   const seen = new Set();
   const results = [];
   let match;
 
   while ((match = pattern.exec(text)) !== null) {
-    const candidate = match[0];
+    const candidate = match[0].replace(/['’]s$/, '');
     if (!seen.has(candidate)) {
       seen.add(candidate);
       results.push(candidate);
@@ -41,8 +41,11 @@ export function redactText(text, terms = [], options = {}) {
   let redactedText = text;
 
   for (const term of uniqueTerms) {
-    const code = formatCode(nextId, padding);
-    nextId += 1;
+    let code;
+    do {
+      code = formatCode(nextId, padding);
+      nextId += 1;
+    } while (redactedText.includes(code));
     mapping.push({ code, value: term });
 
     const pattern = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'g');
@@ -86,20 +89,47 @@ export function mappingToCsv(mapping = []) {
 
 export function mappingFromCsv(csv) {
   if (typeof csv !== 'string' || csv.trim() === '') {
-    return [];
+    throw new Error('Mapping CSV is empty');
   }
 
   const lines = csv.split(/\r?\n/).filter((line) => line.length > 0);
-  const mapping = [];
+  const header = parseCsvLine(lines[0]).map((field) => field.trim().toLowerCase());
+  if (header.length !== 2 || header[0] !== 'code' || header[1] !== 'value') {
+    throw new Error('Mapping CSV must start with the header code,value');
+  }
 
-  for (let index = 0; index < lines.length; index += 1) {
+  const mapping = [];
+  const codes = new Set();
+  const values = new Set();
+
+  for (let index = 1; index < lines.length; index += 1) {
     const fields = parseCsvLine(lines[index]);
-    if (index === 0 && fields[0]?.toLowerCase() === 'code') {
-      continue;
+    if (fields.length !== 2) {
+      throw new Error(`Mapping CSV row ${index + 1} must contain exactly two columns`);
     }
-    if (fields.length >= 2) {
-      mapping.push({ code: fields[0], value: fields[1] });
+
+    const code = fields[0].trim();
+    const value = fields[1].trim();
+    if (!/^(?:\[\[R\d+\]\]|\d+)$/.test(code)) {
+      throw new Error(`Mapping CSV row ${index + 1} has an invalid code`);
     }
+    if (!value) {
+      throw new Error(`Mapping CSV row ${index + 1} has an empty value`);
+    }
+    if (codes.has(code)) {
+      throw new Error(`Mapping CSV contains duplicate code ${code}`);
+    }
+    if (values.has(value)) {
+      throw new Error(`Mapping CSV contains duplicate value ${value}`);
+    }
+
+    codes.add(code);
+    values.add(value);
+    mapping.push({ code, value });
+  }
+
+  if (mapping.length === 0) {
+    throw new Error('Mapping CSV does not contain any mappings');
   }
 
   return mapping;
@@ -131,6 +161,10 @@ function parseCsvLine(line) {
     } else {
       current += character;
     }
+  }
+
+  if (inQuotes) {
+    throw new Error('Mapping CSV contains an unclosed quoted value');
   }
 
   fields.push(current);
